@@ -1,0 +1,14 @@
+const PIX_KEY='COLOQUE_SUA_CHAVE_PIX_AQUI'; const MERCHANT='ESFERAS ENCANTADAS'; const CITY='PALHOCA';
+const total=Number(localStorage.getItem('orderTotal')||0); const mode=localStorage.getItem('orderMode')||'regular'; const qty=Number(localStorage.getItem('orderQty')||1); const discount=localStorage.getItem('btsDiscount')==='1';
+const $=id=>document.getElementById(id); const brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+function mod10(num){let sum=0,alt=false;for(let i=num.length-1;i>=0;i--){let n=+num[i];if(alt){n*=2;if(n>9)n-=9;}sum+=n;alt=!alt;}return (10-(sum%10))%10}
+function crc16(payload){let crc=0xffff;for(let c of payload){crc^=c.charCodeAt(0)<<8;for(let i=0;i<8;i++)crc=(crc&0x8000)?((crc<<1)^0x1021)&0xffff:(crc<<1)&0xffff;}return crc.toString(16).toUpperCase().padStart(4,'0')}
+function field(id,v){return id+String(v.length).padStart(2,'0')+v}
+function pixPayload(amount){if(PIX_KEY.includes('COLOQUE_')) return ''; const mai=field('00','BR.GOV.BCB.PIX')+field('01',PIX_KEY);const gui=field('26',mai);const additional=field('05','***');const merchant=field('59',MERCHANT.substring(0,25));const city=field('60',CITY.substring(0,15));const amountField=amount>0?field('54',amount.toFixed(2)):'';const raw='000201'+gui+'52040000'+'5303986'+amountField+'5802BR'+merchant+city+'6304';return raw+crc16(raw)}
+function update(){ $('payProduct').textContent=mode==='bts'?`Kit BTS • 7 bolas${discount?' • -10%':''}`:`${qty} ${qty===1?'bola':'bolas'} personalizadas`; const u=JSON.parse(localStorage.getItem('customerDraft')||'null'); $('payCustomer').textContent=u?.name||'Cliente'; $('payTotal').textContent=brl(total);PhotoStore.load().then(f=>$('payPhotos').textContent=f.length?`${f.length} arquivo(s)`:'Nenhuma'); const payload=pixPayload(total); $('pixPayload').value=payload||'Configure sua chave Pix no pagamento.js'; if(payload&&window.QRCode){new QRCode($('pixQr'),{text:payload,width:220,height:220});}}
+document.querySelectorAll('.payment-method-tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.payment-method-tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.method-panel').forEach(x=>x.classList.remove('active'));$(b.dataset.method).classList.add('active')});
+$('copyPix').onclick=()=>{navigator.clipboard.writeText($('pixPayload').value).then(()=>{$('paymentMsg').textContent='Código Pix copiado.'})};
+$('confirmPix').onclick=()=>{$('paymentMsg').textContent=PIX_KEY.includes('COLOQUE_')?'Configure a chave Pix antes de usar o pagamento real.':'Pagamento Pix aguardando confirmação.';}
+function cardAction(type){$('paymentMsg').textContent='A tela de pagamento está pronta, mas a cobrança real deve ser conectada ao provedor por tokenização segura. Nenhum dado do cartão é salvo pelo site.';}
+$('confirmCard').onclick=()=>cardAction('credit'); $('confirmDebit').onclick=()=>cardAction('debit');
+update();
